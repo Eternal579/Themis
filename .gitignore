@@ -1,0 +1,5 @@
+simulation/build/
+*.tr
+*.pyc
+*.trgdb
+
