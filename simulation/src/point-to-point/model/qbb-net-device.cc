@@ -50,6 +50,7 @@
 #include <iostream>
 
 NS_LOG_COMPONENT_DEFINE("QbbNetDevice");
+// QbbNetDevice既表示网卡，也表示交换机
 
 namespace ns3 {
 	
@@ -254,6 +255,18 @@ namespace ns3 {
 		DequeueAndTransmit();
 	}
 
+	/**
+ * @brief 从队列中取出并发送数据包
+ *
+ * 如果链路未连接，则返回。如果发送通道忙，则返回。
+ * 根据节点类型，从队列中取出数据包并发送。
+ * 如果节点类型为0，则从RDMA事件队列中获取数据包并发送；
+ * 如果节点类型为交换机，则从普通队列中取出数据包并发送。
+ *
+ * @return 无返回值
+ */
+int first_num=0;
+int finish_num=0;
 	void
 		QbbNetDevice::DequeueAndTransmit(void)
 	{
@@ -277,7 +290,6 @@ namespace ns3 {
 				// transmit
 				m_traceQpDequeue(p, lastQp);
 				TransmitStart(p);
-
 				// update for the next avail time
 				m_rdmaPktSent(lastQp, p, m_tInterframeGap);
 			}else { // no packet to send
@@ -297,15 +309,135 @@ namespace ns3 {
 		}else{   //switch, doesn't care about qcn, just send
 			p = m_queue->DequeueRR(m_paused);		//this is round-robin
 			if (p != 0){
+				//检查p是否符合m_cnp_handler中的条件，如果符合则更新seq，并放到队尾
+				CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+				//ch.getInt = 1;
+				p->PeekHeader(ch);
+				if(enable_themis&&m_queue->GetLastQueue()!=0){
+					//printf("begin resubmit\n");
+					if(ch.udp.pg!=m_queue->GetLastQueue())
+					{
+						std::cout<<ch.udp.pg<<"  "<<m_queue->GetLastQueue()<<std::endl;
+						std::cout<<ch.udp.sport<<"  "<<ch.dip<<"  "<<ch.udp.pg<<std::endl;
+					}
+					CnpKey key(ch.udp.dport,ch.udp.sport,ch.dip,ch.sip,ch.udp.pg);
+					// if(m_cnp_handler==NULL)
+					// {
+					// 	std::cout<<"cnp_handler is null"<<std::endl;
+					// }
+					auto it = m_cnp_handler->find(key);
+					if(it!=m_cnp_handler->end())
+					{
+						CNP_Handler &cnp = it->second;
+						if(!cnp.finished&&cnp.sended)
+						{
+							//第一个包第一次
+							if(cnp.first==0)
+							{
+								//printf("1\n");
+								first_num++;
+								//printf("first_num:%d\n",first_num);
+								cnp.first=ch.udp.seq;
+								cnp.biggest=ch.udp.seq;
+								cnp.delay = Seconds(m_bps.CalculateTxTime(m_queue->GetNBytes(ch.udp.pg)));
+								//std::cout<<"delay:              "<<cnp.delay<<std::endl;
+								cnp.n--;
+								m_queue->Enqueue(p,ch.udp.pg);
+								return;
+							}
+							//第一个包其他次
+							else if(cnp.first==ch.udp.seq)
+							{
+								//printf("%d n = %d",first_num,cnp.n);
+								if(cnp.n!=0){
+									cnp.n--;
+									cnp.delay+=Seconds(m_bps.CalculateTxTime(m_queue->GetNBytes(ch.udp.pg)));
+									m_queue->Enqueue(p,ch.udp.pg);
+									return;
+								}
+								else{
+									cnp.finished=true;
+									cnp.sended=false;
+									//important
+									cnp.finish_time=Simulator::Now();
+									//printf("into stage 2 %d\n",first_num);
+								}
+							}
+							//其他包
+							else {
+								if(ch.udp.seq>cnp.biggest)
+								{
+									cnp.biggest=ch.udp.seq;
+								}
+								//printf("2\n");
+								m_queue->Enqueue(p,ch.udp.pg);
+								return;
+							}
+						}
+						if(cnp.finished&&!cnp.sended)
+						{
+							//printf("3\n");
+							if(ns3::Simulator::Now()>=cnp.finish_time)
+							{
+								cnp.sended=true;
+								//printf("into stage 3 %d\n",first_num);
+							}
+							if(ch.udp.seq>cnp.biggest&&cnp.biggest)
+							{
+								cnp.biggest+=1000;
+								m_queue->Enqueue(p,ch.udp.pg);
+								return;
+							}
+							if(ch.udp.seq==cnp.biggest&&cnp.biggest)
+							{
+								finish_num++;
+								//printf("finish_num:%d\n",finish_num);
+								cnp.biggest=0;
+							}
+						}
+						if(cnp.finished&&cnp.sended)
+						{
+							if(ch.udp.seq>cnp.biggest&&cnp.biggest)
+							{
+
+								//printf("stage 3 resubmit%d %u %u\n",first_num,cnp.biggest,ch.udp.seq);
+								//std::cout<<"stage 3 resubmit "<<first_num<<" "<<cnp.biggest<<" "<<ch.udp.seq<<std::endl;
+								cnp.biggest+=1000;
+								//printf("biggest to %d\n",cnp.biggest);
+								m_queue->Enqueue(p,ch.udp.pg);
+								return;
+							}
+							if(ch.udp.seq==cnp.biggest&&cnp.biggest)
+							{
+								finish_num++;
+								//printf("finish_num:%d\n",finish_num);
+								cnp.biggest=0;
+							}
+							if(ns3::Simulator::Now()-cnp.rec_time<=ns3::MicroSeconds(55)&&cnp.biggest==0)
+							{
+								cnp.finished=false;
+								cnp.first=0;
+								cnp.n=num;
+								//printf("receive cnp again\n");
+							}
+						}
+					}
+				//printf("finish resubmit\n");
+				}
 				m_snifferTrace(p);
 				m_promiscSnifferTrace(p);
-				Ipv4Header h;
 				Ptr<Packet> packet = p->Copy();
 				uint16_t protocol = 0;
+				Ipv4Header h;
 				ProcessHeader(packet, protocol);
 				packet->RemoveHeader(h);
+				//printf("1\n");
 				FlowIdTag t;
+				//printf("2\n");
 				uint32_t qIndex = m_queue->GetLastQueue();
+				// CustomHeader ch2(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+				// packet->PeekHeader(ch2);
+				//printf("3\n");
 				if (qIndex == 0){//this is a pause or cnp, send it immediately!
 					m_node->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
 					p->RemovePacketTag(t);
@@ -313,6 +445,7 @@ namespace ns3 {
 					m_node->SwitchNotifyDequeue(m_ifIndex, qIndex, p);
 					p->RemovePacketTag(t);
 				}
+				//m_node转为switchnode
 				m_traceDequeue(p, qIndex);
 				TransmitStart(p);
 				return;
@@ -332,6 +465,42 @@ namespace ns3 {
 				}
 			}
 		}
+		return;
+	}
+
+	void QbbNetDevice::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch) {
+		uint16_t qIndex = ch.cnp.pg;
+		uint16_t port = ch.cnp.dport;
+		uint32_t sip = ch.sip;
+		//在m_cnp_handler中查
+		CnpKey key(ch.cnp.sport,ch.cnp.dport,ch.sip,ch.dip,ch.cnp.pg);
+		if (m_cnp_handler == nullptr) {
+        	std::cerr << "m_cnp_handler is null" << std::endl;
+        	return;
+    	}
+		auto it = m_cnp_handler->find(key);
+		if(it != m_cnp_handler->end()){
+			CNP_Handler &cnp = it->second;
+			//更新接收时间
+			cnp.rec_time = Simulator::Now();
+			return;
+		}
+		CNP_Handler cnp;
+		cnp.n = num;
+		//输出cnp.n
+		//std::cout<< cnp.n <<std::endl;
+		cnp.rec_time = Simulator::Now();
+		//如果map内部key数量少于5个，直接插入
+		//std::cout<<"sip= "<<ch.dip<<"dip "<<sip<<" port= "<<port<<" qIndex= "<<qIndex<<std::endl;
+		(*m_cnp_handler)[key] = cnp;
+		//std::cout<<" finish "<<std::endl;
+		//(*m_cnp_handler)[key] = cnp;
+		//m_cnp_handler->insert(std::pair<CnpKey, CNP_Handler>(key, cnp));
+		//输出cnp_handler中的所有key
+		//  if(m_node->GetId()==80){
+		// 	std::cout<<"nd2 "<<m_node->GetId()<<" cnp received sip= "<<sip<<" port= "<<port<<" qIndex= "<<qIndex<<std::endl;
+		// 	std::cout << "m_cnp_handler size: " << m_cnp_handler->size() << std::endl;
+		//  }
 		return;
 	}
 
@@ -373,14 +542,21 @@ namespace ns3 {
 			if (!m_qbbEnabled) return;
 			unsigned qIndex = ch.pfc.qIndex;
 			if (ch.pfc.time > 0){
-				m_tracePfc(1);
+				m_tracePfc(1); // 暂停
 				m_paused[qIndex] = true;
+				//std::cout << "PFC received " << m_node->GetId()<< std::endl;
 			}else{
-				m_tracePfc(0);
+				m_tracePfc(0); // 继续
 				Resume(qIndex);
 			}
-		}else { // non-PFC packets (data, ACK, NACK, CNP...)
+		}
+		else { // non-PFC packets (data, ACK, NACK, CNP...)
 			if (m_node->GetNodeType() > 0){ // switch
+			if (ch.l3Prot == 0xFF && enable_themis&&m_bps.GetBitRate()==100000000000) {
+				//std::cout<<m_bps.GetBitRate()<<std::endl;
+				ReceiveCnp(packet, ch);
+				//printf("finish receive cnp\n");
+			}
 				packet->AddPacketTag(FlowIdTag(m_ifIndex));
 				m_node->SwitchReceiveFromDevice(this, packet, ch);
 			}else { // NIC
@@ -405,7 +581,7 @@ namespace ns3 {
 		DequeueAndTransmit();
 		return true;
 	}
-
+	//发送PFC
 	void QbbNetDevice::SendPfc(uint32_t qIndex, uint32_t type){
 		Ptr<Packet> p = Create<Packet>(0);
 		PauseHeader pauseh((type == 0 ? m_pausetime : 0), m_queue->GetNBytes(qIndex), qIndex);
@@ -421,9 +597,43 @@ namespace ns3 {
 		AddHeader(p, 0x800);
 		CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
 		p->PeekHeader(ch);
+		//std::cout << "pfc sent from " << m_node->GetId() << " to " << ch.sip << " port " << ch.udp.dport << " pg "<< ch.udp.pg<< std::endl;
 		SwitchSend(0, p, ch);
 	}
+	void QbbNetDevice::SendCnp(Ptr<Packet> p, CustomHeader &ch){
+		//发送CNP
+		//新建包，设置l3Prot为0xFF，设置sip,dport,qIndex
+		//输出当前交换机的编号
+		//std::cout << "CNP sent from " << m_node->GetId() << " to " << ch.sip << " port " << ch.udp.dport << " pg "<< ch.udp.pg<< std::endl;
+		CnHeader seqh;
+		if(ch.udp.sport==100)return;
+		seqh.SetPG(ch.udp.pg);
+		seqh.SetSport(ch.udp.dport);
+		seqh.SetDport(ch.udp.sport);
+		//std::cout << "CNP sent from " << m_node->GetId() << " to " << ch.sip << " port " << seqh.GetDport() << " pg "<< seqh.GetPG()<< std::endl;
 
+		Ptr<Packet> newp = Create<Packet>(std::max(60-14-20-(int)seqh.GetSerializedSize(), 0));
+		newp->AddHeader(seqh);
+		Ipv4Header ipv4h;	// Prepare IPv4 header
+		ipv4h.SetDestination(Ipv4Address(ch.sip));
+		//Source为当前设备
+		//ipv4h.SetSource(m_node->GetObject<Ipv4>()->GetAddress(m_ifIndex, 0).GetLocal());
+		ipv4h.SetSource(Ipv4Address(ch.dip));
+		ipv4h.SetProtocol(0xFF); //ack=0xFC nack=0xFD cnp=0xFF
+		ipv4h.SetTtl(64);
+		ipv4h.SetPayloadSize(newp->GetSize());
+		ipv4h.SetIdentification(UniformVariable(0, 65536).GetValue());
+		//控制台输出ipv4h的信息
+		newp->AddHeader(ipv4h);
+		AddHeader(newp, 0x800);	// Attach PPP header
+		// send
+		CustomHeader ch2(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+		newp->PeekHeader(ch2);
+		//std::cout << "ch2 " << ch2.cnp.dport << std::endl;
+		//std::cout << ch2.l3Prot << std::endl;
+		SwitchSend(0, newp, ch2);
+		//终端打印CNP
+	}
 	bool
 		QbbNetDevice::Attach(Ptr<QbbChannel> ch)
 	{

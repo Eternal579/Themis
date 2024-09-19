@@ -307,6 +307,7 @@ void TcpHeader::Serialize (Buffer::Iterator start)  const
       uint16_t checksum = i.CalculateIpChecksum (start.GetSize (), headerChecksum);
 
       i = start;
+      //std::cout <<"25" << std::endl;
       i.Next (16);
       i.WriteU16 (checksum);
     }
@@ -322,6 +323,7 @@ uint32_t TcpHeader::Deserialize (Buffer::Iterator start)
   m_flags = field & 0x1FF;
   m_length = field>>12;
   m_windowSize = i.ReadNtohU16 ();
+  //std::cout <<"26" << std::endl;
   i.Next (2);
   m_urgentPointer = i.ReadNtohU16 ();
 

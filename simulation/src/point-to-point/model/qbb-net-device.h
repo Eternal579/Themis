@@ -32,7 +32,6 @@
 #include <vector>
 #include<map>
 #include <ns3/rdma.h>
-
 namespace ns3 {
 
 class RdmaEgressQueue : public Object{
@@ -43,7 +42,6 @@ public:
 	uint32_t m_rrlast;
 	Ptr<DropTailQueue> m_ackQ; // highest priority queue
 	Ptr<RdmaQueuePairGroup> m_qpGrp; // queue pairs
-
 	// callback for get next packet
 	typedef Callback<Ptr<Packet>, Ptr<RdmaQueuePair> > RdmaGetNxtPkt;
 	RdmaGetNxtPkt m_rdmaGetNxtPkt;
@@ -70,9 +68,66 @@ public:
  */
 class QbbNetDevice : public PointToPointNetDevice 
 {
+    
+  
 public:
-  static const uint32_t qCnt = 8;	// Number of queues/priorities used
+class CNP_Handler{
+  public:
+  
 
+    Time rec_time;//最后一次接到CNP的时间
+    Time finish_time;//
+    uint32_t first;//第一个序列号
+    uint32_t biggest;//最大序列号
+    uint32_t n;//需要resubmit n遍
+    Time delay;//第一个包resubmit带来的延迟
+    bool finished;// n次resubmit是否完成
+    bool sended;//是否发送过
+    CNP_Handler(){
+      rec_time = Time(0);
+      finish_time = Time(0);
+      delay = Time(0);
+      first = 0;
+      biggest = 0;
+      n = num;
+      finished = false;
+      sended = true;
+    }
+  };
+  struct CnpKey {
+    uint16_t sport;
+    uint16_t dport;
+    uint32_t sip;
+    uint32_t dip;
+    uint16_t qindex;
+
+    // 重载小于运算符，用于 map 的键比较
+    bool operator<(const CnpKey& other) const {
+      if (sip != other.sip) {
+        return sip < other.sip;
+      }
+      if (dip != other.dip) {
+        return dip < other.dip;
+      }
+      if (sport != other.sport) {
+        return sport < other.sport;
+      }
+      if (dport != other.dport) {
+        return dport < other.dport;
+      }
+      return qindex < other.qindex;
+    }
+    CnpKey(uint16_t sport, uint16_t dport, uint32_t sip, uint32_t dip, uint16_t qindex) {
+      this->sport = sport;
+      this->dport = dport;
+      this->sip = sip;
+      this->dip = dip;
+      this->qindex = qindex;
+    }
+  };
+
+  static const uint32_t qCnt = 8;	// Number of queues/priorities used
+  static const uint32_t num = 1;
   static TypeId GetTypeId (void);
 
   QbbNetDevice ();
@@ -126,11 +181,15 @@ public:
    void TriggerTransmit(void);
 
 	void SendPfc(uint32_t qIndex, uint32_t type); // type: 0 = pause, 1 = resume
-
+  void SendCnp(Ptr<Packet> p, CustomHeader &ch);
+  void ReceiveCnp(Ptr<Packet> p, CustomHeader &ch);
 	TracedCallback<Ptr<const Packet>, uint32_t> m_traceEnqueue;
 	TracedCallback<Ptr<const Packet>, uint32_t> m_traceDequeue;
 	TracedCallback<Ptr<const Packet>, uint32_t> m_traceDrop;
 	TracedCallback<uint32_t> m_tracePfc; // 0: resume, 1: pause
+
+  std::map<CnpKey, CNP_Handler> *m_cnp_handler;
+  bool enable_themis;
 protected:
 
 	//Ptr<Node> m_node;
@@ -200,9 +259,9 @@ public:
 	Ptr<RdmaEgressQueue> GetRdmaQueue();
 	void TakeDown(); // take down this device
 	void UpdateNextAvail(Time t);
-
 	TracedCallback<Ptr<const Packet>, Ptr<RdmaQueuePair> > m_traceQpDequeue; // the trace for printing dequeue
 };
+
 
 } // namespace ns3
 

@@ -80,6 +80,7 @@ uint32_t
 FlameHeader::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
+  //std::cout <<"33" << std::endl;
   i.Next (1);
   m_cost = i.ReadU8 ();
   m_seqno = i.ReadNtohU16 ();

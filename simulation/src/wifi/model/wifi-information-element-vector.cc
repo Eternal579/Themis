@@ -72,6 +72,7 @@ WifiInformationElementVector::Deserialize (Buffer::Iterator start)
   while (size > 0)
     {
       uint32_t deserialized = DeserializeSingleIe (i);
+      //std::cout <<"58" << std::endl;
       i.Next (deserialized);
       size -= deserialized;
     }
@@ -95,6 +96,7 @@ WifiInformationElementVector::DeserializeSingleIe (Buffer::Iterator start)
       NS_FATAL_ERROR ("Check max size for information element!");
     }
   newElement->DeserializeInformationField (i, length);
+  //std::cout <<"59" << std::endl;
   i.Next (length);
   m_elements.push_back (newElement);
   return i.GetDistanceFrom (start);

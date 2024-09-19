@@ -117,6 +117,7 @@ uint32_t DsrOptionHeader::Deserialize (Buffer::Iterator start)
   m_data = Buffer ();
   m_data.AddAtEnd (m_length);
   Buffer::Iterator dataStart = i;
+  //printf("1\n");
   i.Next (m_length);
   Buffer::Iterator dataEnd = i;
   m_data.Begin ().Write (dataStart, dataEnd);
@@ -767,6 +768,7 @@ uint32_t DsrOptionRerrHeader::Deserialize (Buffer::Iterator start)
   m_errorData = Buffer ();
   m_errorData.AddAtEnd (m_errorLength);
   Buffer::Iterator dataStart = i;
+  //printf("2\n");
   i.Next (m_errorLength);
   Buffer::Iterator dataEnd = i;
   m_errorData.Begin ().Write (dataStart, dataEnd);

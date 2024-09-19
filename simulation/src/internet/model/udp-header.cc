@@ -188,6 +188,7 @@ UdpHeader::Serialize (Buffer::Iterator start) const
       uint16_t checksum = i.CalculateIpChecksum (start.GetSize (), headerChecksum);
 
       i = start;
+      //std::cout <<"27" << std::endl;
       i.Next (6);
       i.WriteU16 (checksum);
     }
@@ -199,6 +200,7 @@ UdpHeader::Deserialize (Buffer::Iterator start)
   m_sourcePort = i.ReadNtohU16 ();
   m_destinationPort = i.ReadNtohU16 ();
   m_payloadSize = i.ReadNtohU16 () - GetSerializedSize ();
+  //std::cout <<"28" << std::endl;
   i.Next (2);
 
   if(m_calcChecksum)

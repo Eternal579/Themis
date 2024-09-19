@@ -43,6 +43,7 @@ WifiInformationElement::Serialize (Buffer::Iterator i) const
   i.WriteU8 (ElementId ());
   i.WriteU8 (GetInformationFieldSize ());
   SerializeInformationField (i);
+  //std::cout <<"60" << std::endl;
   i.Next (GetInformationFieldSize ());
   return i;
 }
@@ -75,6 +76,7 @@ WifiInformationElement::DeserializeIfPresent (Buffer::Iterator i)
   uint8_t length = i.ReadU8 ();
 
   DeserializeInformationField (i, length);
+  //std::cout <<"61" << std::endl;
   i.Next (length);
 
   return i;

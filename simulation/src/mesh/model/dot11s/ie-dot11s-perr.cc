@@ -66,6 +66,7 @@ uint8_t
 IePerr::DeserializeInformationField (Buffer::Iterator start, uint8_t length)
 {
   Buffer::Iterator i = start;
+  //std::cout <<"29" << std::endl;
   i.Next (1); //Mode flags is not used now
   uint8_t numOfDest = i.ReadU8 ();
   NS_ASSERT ((2 + 10 * numOfDest ) == length);

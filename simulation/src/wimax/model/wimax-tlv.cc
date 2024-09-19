@@ -251,6 +251,7 @@ VectorTlvValue::Serialize (Buffer::Iterator i) const
   for (std::vector<Tlv*>::const_iterator iter = m_tlvList->begin (); iter != m_tlvList->end (); ++iter)
     {
       (*iter)->Serialize (i);
+      //std::cout <<"62" << std::endl;
       i.Next ((*iter)->GetSerializedSize ());
     }
 }
@@ -477,6 +478,7 @@ SfVectorTlvValue::Deserialize (Buffer::Iterator i, uint64_t valueLen)
           NS_ASSERT_MSG (false, "Unknown tlv type.");
           break;
         }
+        //std::cout <<"63" << std::endl;
       i.Next (length);
     }
   return serializedSize;
@@ -675,6 +677,7 @@ CsParamVectorTlvValue::Deserialize (Buffer::Iterator i, uint64_t valueLength)
             break;
           }
         }
+        //std::cout <<"64" << std::endl;
       i.Next (length);
     }
   return serializedSize;
@@ -799,6 +802,7 @@ ClassificationRuleVectorTlvValue::Deserialize (Buffer::Iterator i, uint64_t valu
             break;
           }
         }
+        //std::cout <<"65" << std::endl;
       i.Next (length);
     }
   return serializedSize;

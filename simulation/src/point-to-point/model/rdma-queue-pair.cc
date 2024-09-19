@@ -21,6 +21,7 @@ TypeId RdmaQueuePair::GetTypeId (void)
 }
 
 RdmaQueuePair::RdmaQueuePair(uint16_t pg, Ipv4Address _sip, Ipv4Address _dip, uint16_t _sport, uint16_t _dport){
+	// 记下了开始时间，用于计算FCT
 	startTime = Simulator::Now();
 	sip = _sip;
 	dip = _dip;

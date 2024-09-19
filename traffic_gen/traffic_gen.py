@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import random
 import math
@@ -71,6 +72,7 @@ if __name__ == "__main__":
 
 	# generate flows
 	avg = customRand.getAvg()
+	# 按照cdf文件，得出流的平均size，按流平均size计算流发送的间隔
 	avg_inter_arrival = 1/(bandwidth*load/8./avg)*1000000000
 	n_flow_estimate = int(time / avg_inter_arrival * nhost)
 	n_flow = 0

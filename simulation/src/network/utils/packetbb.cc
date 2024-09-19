@@ -192,6 +192,7 @@ PbbTlvBlock::Serialize (Buffer::Iterator &start) const
   /* We need to write the size of the TLV block in front, so save its
    * position. */
   Buffer::Iterator tlvsize = start;
+  //printf("52\n");
   start.Next (2);
   for (ConstIterator iter = Begin (); iter != End (); iter++)
     {
@@ -410,6 +411,7 @@ PbbAddressTlvBlock::Serialize (Buffer::Iterator &start) const
   /* We need to write the size of the TLV block in front, so save its
    * position. */
   Buffer::Iterator tlvsize = start;
+  //printf("53\n");
   start.Next (2);
   for (ConstIterator iter = Begin (); iter != End (); iter++)
     {
@@ -1304,6 +1306,7 @@ PbbMessage::Serialize (Buffer::Iterator &start) const
 
   /* Save a reference to the spot where we will later write the flags */
   Buffer::Iterator bufref = start;
+  //printf("54\n");
   start.Next (1);
 
   uint8_t flags = 0;
@@ -1311,6 +1314,7 @@ PbbMessage::Serialize (Buffer::Iterator &start) const
   flags = GetAddressLength ();
 
   Buffer::Iterator sizeref = start;
+  //printf("55\n");
   start.Next (2);
 
   if (HasOriginatorAddress ())
@@ -2667,6 +2671,7 @@ PbbTlv::Deserialize (Buffer::Iterator &start)
       m_value.AddAtStart (len);
 
       Buffer::Iterator valueStart = start;
+      //printf("56\n");
       start.Next (len);
       m_value.Begin ().Write (valueStart, start);
       m_hasValue = true;

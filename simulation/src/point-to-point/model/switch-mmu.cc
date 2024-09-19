@@ -109,7 +109,7 @@ namespace ns3 {
 		return false;
 	}
 	void SwitchMmu::ConfigEcn(uint32_t port, uint32_t _kmin, uint32_t _kmax, double _pmax){
-		kmin[port] = _kmin * 1000;
+		kmin[port] = _kmin * 1000; // Rixin: 这里说明kmin是KB单位
 		kmax[port] = _kmax * 1000;
 		pmax[port] = _pmax;
 	}

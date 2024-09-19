@@ -128,6 +128,7 @@ void Icmpv6Header::Serialize (Buffer::Iterator start) const
       i = start;
       uint16_t checksum = i.CalculateIpChecksum (i.GetSize (), m_checksum);
       i = start;
+        //std::cout <<"12" << std::endl;
       i.Next (2);
       i.WriteU16 (checksum);
     }
@@ -248,6 +249,7 @@ void Icmpv6NS::Serialize (Buffer::Iterator start) const
       i = start;
       checksum = i.CalculateIpChecksum (i.GetSize (), m_checksum);
       i = start;
+      //std::cout <<"13" << std::endl;
       i.Next (2);
       i.WriteU16 (checksum);
     }
@@ -394,6 +396,7 @@ void Icmpv6NA::Serialize (Buffer::Iterator start) const
       i = start;
       checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
       i = start;
+      //std::cout <<"14" << std::endl;
       i.Next (2);
       i.WriteU16 (checksum);
     }
@@ -592,6 +595,7 @@ void Icmpv6RA::Serialize (Buffer::Iterator start) const
   checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
 
   i = start;
+  //std::cout <<"15" << std::endl;
   i.Next (2);
   i.WriteU16 (checksum);
 }
@@ -694,6 +698,7 @@ void Icmpv6RS::Serialize (Buffer::Iterator start) const
       checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
 
       i = start;
+      //std::cout <<"16" << std::endl;
       i.Next (2);
       i.WriteU16 (checksum);
     }
@@ -805,6 +810,7 @@ void Icmpv6Redirection::Serialize (Buffer::Iterator start) const
       checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
 
       i = start;
+      //std::cout <<"17" << std::endl;
       i.Next (2);
       i.WriteU16 (checksum);
     }
@@ -916,6 +922,7 @@ void Icmpv6Echo::Serialize (Buffer::Iterator start) const
       i = start;
       checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
       i = start;
+      //std::cout <<"18" << std::endl;
       i.Next (2);
       i.WriteU16 (checksum);
     }
@@ -1001,6 +1008,7 @@ void Icmpv6DestinationUnreachable::Serialize (Buffer::Iterator start) const
   checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
 
   i = start;
+  //std::cout <<"19" << std::endl;
   i.Next (2);
   i.WriteU16 (checksum);
 }
@@ -1100,6 +1108,7 @@ void Icmpv6TooBig::Serialize (Buffer::Iterator start) const
   checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
 
   i = start;
+  //std::cout <<"20" << std::endl;
   i.Next (2);
   i.WriteU16 (checksum);
 }
@@ -1188,6 +1197,7 @@ void Icmpv6TimeExceeded::Serialize (Buffer::Iterator start) const
   checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
 
   i = start;
+  //std::cout <<"21" << std::endl;
   i.Next (2);
   i.WriteU16 (checksum);
 }
@@ -1287,6 +1297,7 @@ void Icmpv6ParameterError::Serialize (Buffer::Iterator start) const
   checksum = i.CalculateIpChecksum (i.GetSize (), GetChecksum ());
 
   i = start;
+  //std::cout <<"22" << std::endl;
   i.Next (2);
   i.WriteU16 (checksum);
 }

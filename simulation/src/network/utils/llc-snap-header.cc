@@ -82,6 +82,7 @@ uint32_t
 LlcSnapHeader::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
+  //printf("51\n");
   i.Next (5+1);
   m_etherType = i.ReadNtohU16 ();
   return GetSerializedSize ();

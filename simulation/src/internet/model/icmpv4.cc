@@ -74,6 +74,7 @@ Icmpv4Header::Serialize (Buffer::Iterator start) const
       i = start;
       uint16_t checksum = i.CalculateIpChecksum (i.GetSize ());
       i = start;
+        //std::cout <<"4" << std::endl;
       i.Next (2);
       i.WriteU16 (checksum);
     }
@@ -84,6 +85,7 @@ Icmpv4Header::Deserialize (Buffer::Iterator start)
 {
   m_type = start.ReadU8 ();
   m_code = start.ReadU8 ();
+    //std::cout <<"5" << std::endl;
   start.Next (2); // uint16_t checksum = start.ReadNtohU16 ();
   return 4;
 }
@@ -314,6 +316,7 @@ Icmpv4DestinationUnreachable::Serialize (Buffer::Iterator start) const
   start.WriteHtonU16 (m_nextHopMtu);
   uint32_t size = m_header.GetSerializedSize ();
   m_header.Serialize (start);
+    //std::cout <<"6" << std::endl;
   start.Next (size);
   start.Write (m_data, 8);
 }
@@ -322,9 +325,11 @@ uint32_t
 Icmpv4DestinationUnreachable::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
+    //std::cout <<"7" << std::endl;
   i.Next (2);
   m_nextHopMtu = i.ReadNtohU16 ();
   uint32_t read = m_header.Deserialize (i);
+    //std::cout <<"8" << std::endl;
   i.Next (read);
   for (uint8_t j = 0; j < 8; j++)
     {
@@ -414,6 +419,7 @@ Icmpv4TimeExceeded::Serialize (Buffer::Iterator start) const
   start.WriteU32 (0);
   uint32_t size = m_header.GetSerializedSize ();
   m_header.Serialize (start);
+    //std::cout <<"9" << std::endl;
   start.Next (size);
   start.Write (m_data, 8);
 }
@@ -422,8 +428,10 @@ uint32_t
 Icmpv4TimeExceeded::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
+    //std::cout <<"10" << std::endl;
   i.Next (4);
   uint32_t read = m_header.Deserialize (i);
+    //std::cout <<"11" << std::endl;
   i.Next (read);
   for (uint8_t j = 0; j < 8; j++)
     {

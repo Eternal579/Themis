@@ -153,6 +153,7 @@ uint32_t
 ArpHeader::Deserialize (Buffer::Iterator start)
 {
   Buffer::Iterator i = start;
+    //printf("3\n");
   i.Next (2);                                    // Skip HRD
   uint32_t protocolType = i.ReadNtohU16 ();      // Read PRO
   uint32_t hardwareAddressLen = i.ReadU8 ();     // Read HLN

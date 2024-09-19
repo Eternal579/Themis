@@ -35,6 +35,7 @@
 #include <ns3/rdma-client-helper.h>
 #include <ns3/rdma-driver.h>
 #include <ns3/switch-node.h>
+
 #include <ns3/sim-setting.h>
 
 using namespace ns3;
@@ -135,7 +136,9 @@ void ReadFlowInput(){
 void ScheduleFlowInputs(){
 	while (flow_input.idx < flow_num && Seconds(flow_input.start_time) == Simulator::Now()){
 		uint32_t port = portNumder[flow_input.src][flow_input.dst]++; // get a new port number 
+		// RDMA Client在这里创建
 		RdmaClientHelper clientHelper(flow_input.pg, serverAddress[flow_input.src], serverAddress[flow_input.dst], port, flow_input.dport, flow_input.maxPacketCount, has_win?(global_t==1?maxBdp:pairBdp[n.Get(flow_input.src)][n.Get(flow_input.dst)]):0, global_t==1?maxRtt:pairRtt[flow_input.src][flow_input.dst]);
+  		// std::cout << "m_size = " << clientHelper.m_size << "\n";
 		ApplicationContainer appCon = clientHelper.Install(n.Get(flow_input.src));
 		appCon.Start(Time(0));
 
@@ -164,8 +167,13 @@ void qp_finish(FILE* fout, Ptr<RdmaQueuePair> q){
 	uint32_t sid = ip_to_node_id(q->sip), did = ip_to_node_id(q->dip);
 	uint64_t base_rtt = pairRtt[sid][did], b = pairBw[sid][did];
 	uint32_t total_bytes = q->m_size + ((q->m_size-1) / packet_payload_size + 1) * (CustomHeader::GetStaticWholeHeaderSize() - IntHeader::GetStaticSize()); // translate to the minimum bytes required (with header but no INT)
-	uint64_t standalone_fct = base_rtt + total_bytes * 8000000000lu / b;
+	uint64_t standalone_fct = base_rtt + total_bytes * 8000000000lu / b; // rtt + 理论传输时间 （ns）
+	//std::cout << "one qp completed\n";
+	//std::cout << "pairBw[sid][did] = " << pairBw[sid][did] << "\n";
 	// sip, dip, sport, dport, size (B), start_time, fct (ns), standalone_fct (ns)
+	//std::cout << "base_rtt = " << base_rtt << "\n";
+	// fct计算：从建立qp到收到ACK
+	// standalonefct计算：链路固有延迟 + 每个交换机增加的延迟 + 发送端发出所有数据所需延迟
 	fprintf(fout, "%08x %08x %u %u %lu %lu %lu %lu\n", q->sip.Get(), q->dip.Get(), q->sport, q->dport, q->m_size, q->startTime.GetTimeStep(), (Simulator::Now() - q->startTime).GetTimeStep(), standalone_fct);
 	fflush(fout);
 
@@ -175,6 +183,7 @@ void qp_finish(FILE* fout, Ptr<RdmaQueuePair> q){
 	rdma->m_rdma->DeleteRxQp(q->sip.Get(), q->m_pg, q->sport);
 }
 
+//  GetNodeType 0表示服务器，1表示交换机，GetIfIndex表示网络接口，type 0 表示暂停，1表示继续
 void get_pfc(FILE* fout, Ptr<QbbNetDevice> dev, uint32_t type){
 	fprintf(fout, "%lu %u %u %u %u\n", Simulator::Now().GetTimeStep(), dev->GetNode()->GetId(), dev->GetNode()->GetNodeType(), dev->GetIfIndex(), type);
 }
@@ -196,8 +205,10 @@ void monitor_buffer(FILE* qlen_output, NodeContainer *n){
 			Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n->Get(i));
 			if (queue_result.find(i) == queue_result.end())
 				queue_result[i];
+			// sw->GetNDevices()表示使用的端口数目
 			for (uint32_t j = 1; j < sw->GetNDevices(); j++){
 				uint32_t size = 0;
+				// qcnt是每个端口的虚拟队列数目
 				for (uint32_t k = 0; k < SwitchMmu::qCnt; k++)
 					size += sw->m_mmu->egress_bytes[j][k];
 				queue_result[i][j].add(size);
@@ -246,8 +257,12 @@ void CalculateRoute(Ptr<Node> host){
 			// If 'next' have not been visited.
 			if (dis.find(next) == dis.end()){
 				dis[next] = d + 1;
+				// it->second.delay是链路延迟
 				delay[next] = delay[now] + it->second.delay;
+				// std::cout << "it->second.delay = " << it->second.delay << "\n";
+				// it->second.bw是链路带宽
 				txDelay[next] = txDelay[now] + packet_payload_size * 1000000000lu * 8 / it->second.bw;
+				// std::cout << "it->second.bw = " << it->second.bw << "\n";
 				bw[next] = std::min(bw[now], it->second.bw);
 				// we only enqueue switch, because we do not want packets to go through host as middle point
 				if (next->GetNodeType() == 1)
@@ -335,8 +350,6 @@ uint64_t get_nic_rate(NodeContainer &n){
 
 int main(int argc, char *argv[])
 {
-	clock_t begint, endt;
-	begint = clock();
 #ifndef PGO_TRAINING
 	if (argc > 1)
 #else
@@ -690,12 +703,14 @@ int main(int argc, char *argv[])
 
 	//SeedManager::SetSeed(time(NULL));
 
+	// 
 	topof.open(topology_file.c_str());
 	flowf.open(flow_file.c_str());
 	tracef.open(trace_file.c_str());
 	uint32_t node_num, switch_num, link_num, trace_num;
 	topof >> node_num >> switch_num >> link_num;
 	flowf >> flow_num;
+	std::cout << "flow_num: " << flow_num << "\n";
 	tracef >> trace_num;
 
 
@@ -759,6 +774,7 @@ int main(int argc, char *argv[])
 
 		Ptr<Node> snode = n.Get(src), dnode = n.Get(dst);
 
+		// 设置链路的rate和delay
 		qbb.SetDeviceAttribute("DataRate", StringValue(data_rate));
 		qbb.SetChannelAttribute("Delay", StringValue(link_delay));
 
@@ -823,10 +839,19 @@ int main(int argc, char *argv[])
 		if (n.Get(i)->GetNodeType() == 1){ // is switch
 			Ptr<SwitchNode> sw = DynamicCast<SwitchNode>(n.Get(i));
 			uint32_t shift = 3; // by default 1/8
+			std::cout << "sw->GetNDevices() = " << sw->GetNDevices() << "\n";
+			// 对于交换机来说，其上的设备数为其连接的服务器有多少个
 			for (uint32_t j = 1; j < sw->GetNDevices(); j++){
 				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(sw->GetDevice(j));
+				if (i == 80 || i == 81) {
+					dev->enable_themis = true;
+					dev->m_cnp_handler = &sw->m_cnp_handler;
+					if(dev->m_cnp_handler == NULL)
+						std::cout << "m_cnp_handler is NULL\n";
+				}
 				// set ecn
 				uint64_t rate = dev->GetDataRate().GetBitRate();
+				// 按照链路rate设置ecn threshold
 				NS_ASSERT_MSG(rate2kmin.find(rate) != rate2kmin.end(), "must set kmin for each link speed");
 				NS_ASSERT_MSG(rate2kmax.find(rate) != rate2kmax.end(), "must set kmax for each link speed");
 				NS_ASSERT_MSG(rate2pmax.find(rate) != rate2pmax.end(), "must set pmax for each link speed");
@@ -844,11 +869,11 @@ int main(int argc, char *argv[])
 				}
 			}
 			sw->m_mmu->ConfigNPort(sw->GetNDevices()-1);
+			// switch buffer大小单位为MB
 			sw->m_mmu->ConfigBufferSize(buffer_size* 1024 * 1024);
 			sw->m_mmu->node_id = sw->GetId();
 		}
 	}
-
 	#if ENABLE_QP
 	FILE *fct_output = fopen(fct_output_file.c_str(), "w");
 	//
@@ -903,7 +928,6 @@ int main(int argc, char *argv[])
 	// setup routing
 	CalculateRoutes(n);
 	SetRoutingEntries();
-
 	//
 	// get BDP and delay
 	//
@@ -1010,6 +1034,9 @@ int main(int argc, char *argv[])
 	//
 	// Now, do the actual simulation.
 	//
+	clock_t begint, endt;
+	begint = clock();
+
 	std::cout << "Running Simulation.\n";
 	fflush(stdout);
 	NS_LOG_INFO("Run Simulation.");

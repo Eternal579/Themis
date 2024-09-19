@@ -388,6 +388,7 @@ Ipv4Header::Serialize (Buffer::Iterator start) const
       uint16_t checksum = i.CalculateIpChecksum (20);
       NS_LOG_LOGIC ("checksum=" <<checksum);
       i = start;
+      //std::cout <<"23" << std::endl;
       i.Next (10);
       i.WriteU16 (checksum);
     }

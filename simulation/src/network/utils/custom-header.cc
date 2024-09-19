@@ -163,11 +163,9 @@ void CustomHeader::Serialize (Buffer::Iterator start) const{
 		  i.WriteHtonU16 (udp.pg);
 		  udp.ih.Serialize(i);
 	  }else if (l3Prot == 0xFF){ // CNP
-		  i.WriteU8(cnp.qIndex);
-		  i.WriteU16(cnp.fid);
-		  i.WriteU8(cnp.ecnBits);
-		  i.WriteU16(cnp.qfb);
-		  i.WriteU16(cnp.total);
+		start.WriteU16(cnp.dport);
+  		start.WriteU16(cnp.sport);
+  		start.WriteU16(cnp.pg);
 	  }else if (l3Prot == 0xFC || l3Prot == 0xFD){ // ACK or NACK
 		  i.WriteU16(ack.sport);
 		  i.WriteU16(ack.dport);
@@ -192,6 +190,7 @@ CustomHeader::Deserialize (Buffer::Iterator start)
   int l2Size = 0;
   if (headerType & L2_Header){
 	  pppProto = i.ReadNtohU16();
+	  //printf("41\n");
 	  i.Next(12);
 	  l2Size = 14;
   }
@@ -200,6 +199,7 @@ CustomHeader::Deserialize (Buffer::Iterator start)
   int l3Size = 0;
   if (headerType & L3_Header){
 	  i = start;
+	  //printf("42\n");
 	  i.Next(l2Size);
 
 	  uint8_t verIhl = i.ReadU8 ();
@@ -215,10 +215,13 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 
 	  if (brief){
 		  m_tos = i.ReadU8 ();
+		  //printf("43\n");
 		  i.Next(2);
 		  ipid = i.ReadNtohU16();
+		  //printf("44\n");
 		  i.Next(3);
 		  l3Prot = i.ReadU8();
+		  //printf("45\n");
 		  i.Next(2);
 		  sip = i.ReadNtohU32();
 		  dip = i.ReadNtohU32();
@@ -253,6 +256,7 @@ CustomHeader::Deserialize (Buffer::Iterator start)
   if (headerType & L4_Header){
 	  if (l3Prot == 0x6){ // TCP
 		  i = start;
+		  //printf("46\n");
 		  i.Next(l2Size + l3Size);
 		  tcp.sport = i.ReadNtohU16 ();
 		  tcp.dport = i.ReadNtohU16 ();
@@ -265,6 +269,7 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 			  tcp.tcpFlags = field & 0x3F;
 			  tcp.length = field >> 12;
 			  tcp.windowSize = i.ReadNtohU16 ();
+			  //printf("47\n");
 			  i.Next (2);
 			  tcp.urgentPointer = i.ReadNtohU16 ();
 
@@ -279,14 +284,17 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 		  l4Size = tcp.length * 4;
 	  }else if (l3Prot == 0x11){ // UDP + SeqTsHeader
 		  i = start;
+		  //printf("48\n");
 		  i.Next(l2Size + l3Size);
 		  // udp header
 		  udp.sport = i.ReadNtohU16 ();
 		  udp.dport = i.ReadNtohU16 ();
 		  if (brief){
+			//printf("49\n");
 			  i.Next(4);
 		  }else{
 			  udp.payload_size = i.ReadNtohU16();
+			  //printf("50\n");
 			  i.Next(2);
 		  }
 
@@ -298,12 +306,11 @@ CustomHeader::Deserialize (Buffer::Iterator start)
 
 		  l4Size = GetUdpHeaderSize();
 	  }else if (l3Prot == 0xFF){
-		  cnp.qIndex = i.ReadU8();
-		  cnp.fid = i.ReadU16();
-		  cnp.ecnBits = i.ReadU8();
-		  cnp.qfb = i.ReadU16();
-		  cnp.total = i.ReadU16();
-		  l4Size = 8;
+
+		  cnp.dport = i.ReadU16();
+		  cnp.sport = i.ReadU16();
+		  cnp.pg = i.ReadU16();
+		  l4Size = 6;
 	  }else if (l3Prot == 0xFC || l3Prot == 0xFD){ // ACK or NACK
 		  ack.sport = i.ReadU16();
 		  ack.dport = i.ReadU16();

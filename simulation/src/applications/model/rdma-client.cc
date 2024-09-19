@@ -132,6 +132,7 @@ void RdmaClient::DoDispose (void)
   Application::DoDispose ();
 }
 
+// 开始应用程序发送消息
 void RdmaClient::StartApplication (void)
 {
   NS_LOG_FUNCTION_NOARGS ();

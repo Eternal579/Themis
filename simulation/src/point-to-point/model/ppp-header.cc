@@ -93,6 +93,7 @@ uint32_t
 PppHeader::Deserialize (Buffer::Iterator start)
 {
   m_protocol = start.ReadNtohU16 ();
+  //printf("57\n");
   start.Next(12);
   return GetSerializedSize ();
 }

@@ -220,7 +220,7 @@ bool DataRate::operator != (const DataRate& rhs) const
 {
   return m_bps!=rhs.m_bps;
 }
-
+//计算发送时间
 double DataRate::CalculateTxTime (uint32_t bytes) const
 {
   return static_cast<double>(bytes)*8/m_bps;

@@ -93,6 +93,7 @@ BufferTest::DoRun (void)
   ENSURE_WRITTEN_BYTES (buffer, 8, 0, 0, 0x63, 0x69, 0xde, 0xad, 0xbe, 0xaf);
   buffer.AddAtEnd (2);
   i = buffer.Begin ();
+  //std::cout <<"35" << std::endl;
   i.Next (8);
   i.WriteU16 (0);
   ENSURE_WRITTEN_BYTES (buffer, 10, 0, 0, 0x63, 0x69, 0xde, 0xad, 0xbe, 0xaf, 0, 0);
@@ -108,6 +109,7 @@ BufferTest::DoRun (void)
   ENSURE_WRITTEN_BYTES (buffer, 4, 0xff, 0x69, 0xde, 0xad);
   buffer.AddAtEnd (1);
   i = buffer.Begin ();
+  //std::cout <<"36" << std::endl;
   i.Next (4);
   i.WriteU8 (0xff);
   i.Prev (2);
@@ -174,6 +176,7 @@ BufferTest::DoRun (void)
   ENSURE_WRITTEN_BYTES (buffer, 4,  0xbe, 0xaf, 0, 0);
   buffer.AddAtEnd (4);
   i = buffer.Begin ();
+  //std::cout <<"37" << std::endl;
   i.Next (4);
   i.WriteHtonU32 (0xdeadbeaf);
   ENSURE_WRITTEN_BYTES (buffer, 8,  0xbe, 0xaf, 0, 0, 0xde, 0xad, 0xbe, 0xaf);
@@ -186,6 +189,7 @@ BufferTest::DoRun (void)
   ENSURE_WRITTEN_BYTES (buffer, 4, 0, 0, 0, 0);
   buffer.AddAtEnd (2);
   i = buffer.Begin ();
+  //std::cout <<"38" << std::endl;
   i.Next (4);
   i.WriteU8 (0xab);
   i.WriteU8 (0xac);
@@ -196,6 +200,7 @@ BufferTest::DoRun (void)
   ENSURE_WRITTEN_BYTES (buffer, 2, 0, 0);
   buffer.AddAtEnd (6);
   i = buffer.Begin ();
+  //std::cout <<"39" << std::endl;
   i.Next (2);
   i.WriteU8 (0xac);
   i.WriteU8 (0xad);
@@ -215,6 +220,7 @@ BufferTest::DoRun (void)
   buffer = Buffer (3);
   buffer.AddAtEnd (2);
   i = buffer.Begin ();
+  //printf("40\n");
   i.Next (3);
   i.WriteHtonU16 (0xabcd);
   buffer.AddAtStart (1);

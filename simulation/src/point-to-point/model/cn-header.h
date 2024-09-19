@@ -39,42 +39,18 @@ namespace ns3 {
 class CnHeader : public Header 
 {
 public:
-  CnHeader (const uint16_t fid, uint8_t qIndex, uint8_t ecnbits, uint16_t qfb, uint16_t total);
+  CnHeader (uint16_t pg, uint16_t sport, uint16_t dport);
   //CnHeader (const uint16_t fid, uint8_t qIndex, uint8_t qfb);
   CnHeader ();
   virtual ~CnHeader ();
 
-//Setters
-  /**
-   * \param fid The flow id
-   */
-  void SetFlow (const uint16_t fid);
-  /**
-   * \param q The quantized feedback value
-   */
-  void SetQfb (uint16_t q);
-  void SetTotal (uint16_t t);
+  uint16_t GetPG (void) const;
+  uint16_t GetDport (void) const;
+  uint16_t GetSport (void) const;
 
-//Getters
-  /**
-   * \return The flow id
-   */
-  uint16_t GetFlow () const;
-  /**
-   * \return The quantized feedback value
-   */
-  uint16_t GetQfb () const;
-  uint16_t GetTotal () const;
-
-
-  void SetQindex (const uint8_t qIndex);
-  uint8_t GetQindex () const;
-
-  void SetECNBits (const uint8_t ecnbits);
-  uint8_t GetECNBits () const;
-
-  void SetSeq (const uint32_t seq);
-  uint32_t GetSeq () const;
+  void SetPG (uint16_t pg);
+  void SetDport (uint16_t dport);
+  void SetSport (uint16_t sport);
 
   static TypeId GetTypeId (void);
   virtual TypeId GetInstanceTypeId (void) const;
@@ -84,17 +60,8 @@ public:
   virtual uint32_t Deserialize (Buffer::Iterator start);
 
 private:
-  uint16_t sport, dport;
-  uint16_t m_fid;
-  uint8_t m_qIndex;
-  uint8_t m_ecnBits;
-  union {
-	  struct {
-		  uint16_t m_qfb;
-		  uint16_t m_total;
-	  };
-	  uint32_t m_seq;
-  };
+  uint16_t m_sport, m_dport;
+	uint16_t m_pg;
 };
 
 }; // namespace ns3

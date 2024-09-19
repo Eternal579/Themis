@@ -104,6 +104,7 @@ uint32_t Ipv6OptionHeader::Deserialize (Buffer::Iterator start)
   m_data = Buffer ();
   m_data.AddAtEnd (m_length);
   Buffer::Iterator dataStart = i;
+  //std::cout <<"24" << std::endl;
   i.Next (m_length);
   Buffer::Iterator dataEnd = i;
   m_data.Begin ().Write (dataStart, dataEnd);

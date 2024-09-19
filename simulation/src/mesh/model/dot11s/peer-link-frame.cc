@@ -181,6 +181,7 @@ PeerLinkFrameStart::Deserialize (Buffer::Iterator start)
       {
         NS_FATAL_ERROR ("Broken frame: Element ID does not match IE itself!");
       }
+      //std::cout <<"30" << std::endl;
     i.Next (m_protocol.GetInformationFieldSize ());
   }
   if ((uint8_t)(WifiActionHeader::PEER_LINK_CLOSE) != m_subtype)
@@ -205,6 +206,7 @@ PeerLinkFrameStart::Deserialize (Buffer::Iterator start)
         {
           NS_FATAL_ERROR ("Broken frame: Element ID does not match IE itself!");
         }
+        //std::cout <<"31" << std::endl;
       i.Next (m_meshId.GetInformationFieldSize ());
     }
   if ((uint8_t)(WifiActionHeader::PEER_LINK_CLOSE) != m_subtype)
@@ -216,6 +218,7 @@ PeerLinkFrameStart::Deserialize (Buffer::Iterator start)
         {
           NS_FATAL_ERROR ("Broken frame: Element ID does not match IE itself!");
         }
+        //std::cout <<"32" << std::endl;
       i.Next (m_config.GetInformationFieldSize ());
     }
   else

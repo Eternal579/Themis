@@ -220,6 +220,8 @@ Ptr<RdmaQueuePair> RdmaHw::GetQp(uint32_t dip, uint16_t sport, uint16_t pg){
 		return it->second;
 	return NULL;
 }
+
+// 添加队列，并通知网卡开始发送工作
 void RdmaHw::AddQueuePair(uint64_t size, uint16_t pg, Ipv4Address sip, Ipv4Address dip, uint16_t sport, uint16_t dport, uint32_t win, uint64_t baseRtt, Callback<void> notifyAppFinish){
 	// create qp
 	Ptr<RdmaQueuePair> qp = CreateObject<RdmaQueuePair>(pg, sip, dip, sport, dport);
@@ -295,7 +297,7 @@ void RdmaHw::DeleteRxQp(uint32_t dip, uint16_t pg, uint16_t dport){
 	uint64_t key = ((uint64_t)dip << 32) | ((uint64_t)pg << 16) | (uint64_t)dport;
 	m_rxQpMap.erase(key);
 }
-
+//发送ACK的函数
 int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 	uint8_t ecnbits = ch.GetIpv4EcnBits();
 
@@ -303,10 +305,6 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 
 	// TODO find corresponding rx queue pair
 	Ptr<RdmaRxQueuePair> rxQp = GetRxQp(ch.dip, ch.sip, ch.udp.dport, ch.udp.sport, ch.udp.pg, true);
-	if (ecnbits != 0){
-		rxQp->m_ecn_source.ecnbits |= ecnbits;
-		rxQp->m_ecn_source.qfb++;
-	}
 	rxQp->m_ecn_source.total++;
 	rxQp->m_milestone_rx = m_ack_interval;
 
@@ -318,8 +316,6 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 		seqh.SetSport(ch.udp.dport);
 		seqh.SetDport(ch.udp.sport);
 		seqh.SetIntHeader(ch.udp.ih);
-		if (ecnbits)
-			seqh.SetCnp();
 
 		Ptr<Packet> newp = Create<Packet>(std::max(60-14-20-(int)seqh.GetSerializedSize(), 0));
 		newp->AddHeader(seqh);
@@ -335,6 +331,8 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 		newp->AddHeader(head);
 		AddHeader(newp, 0x800);	// Attach PPP header
 		// send
+		//输出rxQp的信息
+		//std::cout << "rxQp: " << rxQp->dip << " " << rxQp->sip << " " << rxQp->sport << " " << rxQp->dport << " " << rxQp->m_ecn_source.qIndex << std::endl;
 		uint32_t nic_idx = GetNicIdxOfRxQp(rxQp);
 		m_nic[nic_idx].dev->RdmaEnqueueHighPrioQ(newp);
 		m_nic[nic_idx].dev->TriggerTransmit();
@@ -343,46 +341,18 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 }
 
 int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch){
-	// QCN on NIC
-	// This is a Congestion signal
-	// Then, extract data from the congestion packet.
-	// We assume, without verify, the packet is destinated to me
-	uint32_t qIndex = ch.cnp.qIndex;
-	if (qIndex == 1){		//DCTCP
-		std::cout << "TCP--ignore\n";
+	//终端输出CNP
+	uint16_t qIndex = ch.cnp.pg;
+	uint16_t port = ch.cnp.dport;
+
+	Ptr<RdmaQueuePair> qp = GetQp(ch.sip, port, qIndex);
+	if (qp == NULL){
+		Ipv4Address ipv4_sip = Ipv4Address(ch.sip);
+		std::cout << "ERROR: " << "node:" << m_node->GetId()  << " CNP NIC cannot find the flow "<< ch.sip << ' ' << port << ' ' << qIndex << std::endl;
+		ipv4_sip.Print(std::cout);
 		return 0;
 	}
-	uint16_t udpport = ch.cnp.fid; // corresponds to the sport
-	uint8_t ecnbits = ch.cnp.ecnBits;
-	uint16_t qfb = ch.cnp.qfb;
-	uint16_t total = ch.cnp.total;
-
-	uint32_t i;
-	// get qp
-	Ptr<RdmaQueuePair> qp = GetQp(ch.sip, udpport, qIndex);
-	if (qp == NULL)
-		std::cout << "ERROR: QCN NIC cannot find the flow\n";
-	// get nic
-	uint32_t nic_idx = GetNicIdxOfQp(qp);
-	Ptr<QbbNetDevice> dev = m_nic[nic_idx].dev;
-
-	if (qp->m_rate == 0)			//lazy initialization	
-	{
-		qp->m_rate = dev->GetDataRate();
-		if (m_cc_mode == 1){
-			qp->mlx.m_targetRate = dev->GetDataRate();
-		}else if (m_cc_mode == 3){
-			qp->hp.m_curRate = dev->GetDataRate();
-			if (m_multipleRate){
-				for (uint32_t i = 0; i < IntHeader::maxHop; i++)
-					qp->hp.hopState[i].Rc = dev->GetDataRate();
-			}
-		}else if (m_cc_mode == 7){
-			qp->tmly.m_curRate = dev->GetDataRate();
-		}else if (m_cc_mode == 10){
-			qp->hpccPint.m_curRate = dev->GetDataRate();
-		}
-	}
+	cnp_received_mlx(qp);
 	return 0;
 }
 
@@ -394,7 +364,7 @@ int RdmaHw::ReceiveAck(Ptr<Packet> p, CustomHeader &ch){
 	int i;
 	Ptr<RdmaQueuePair> qp = GetQp(ch.sip, port, qIndex);
 	if (qp == NULL){
-		std::cout << "ERROR: " << "node:" << m_node->GetId() << ' ' << (ch.l3Prot == 0xFC ? "ACK" : "NACK") << " NIC cannot find the flow\n";
+		std::cout << "ERROR: " << "node:" << m_node->GetId() << ' ' << (ch.l3Prot == 0xFC ? "ACK" : "NACK") << " NIC +\n";
 		return 0;
 	}
 
@@ -441,6 +411,7 @@ int RdmaHw::Receive(Ptr<Packet> p, CustomHeader &ch){
 	if (ch.l3Prot == 0x11){ // UDP
 		ReceiveUdp(p, ch);
 	}else if (ch.l3Prot == 0xFF){ // CNP
+		//std::cout << "CNP received\n";
 		ReceiveCnp(p, ch);
 	}else if (ch.l3Prot == 0xFD){ // NACK
 		ReceiveAck(p, ch);

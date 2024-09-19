@@ -130,6 +130,8 @@ namespace ns3 {
 				m_rrlast = qIndex;
 			}
 			m_qlast = qIndex;
+			// if(m_qlast==0)
+			// std::cout<<"qindex="<<m_qlast<<std::endl;
 			NS_LOG_LOGIC("Popped " << p);
 			NS_LOG_LOGIC("Number bytes " << m_bytesInQueueTotal);
 			return p;

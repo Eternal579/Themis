@@ -36,16 +36,9 @@ struct TraceFormat{
 			uint16_t payload; // this does not include SeqTsHeader's size, diff from udp's payload size.
 		} data;
 		struct {
-			uint16_t fid;
-			uint8_t qIndex;
-			uint8_t ecnBits; // this is the ECN bits in the CNP
-			union{
-				struct {
-					uint16_t qfb;
-					uint16_t total;
-				};
-				uint32_t seq;
-			};
+			uint16_t sport;
+			uint16_t dport;
+			uint16_t pg;
 		} cnp;
 		struct {
 			uint16_t sport, dport;
