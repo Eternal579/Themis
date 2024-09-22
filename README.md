@@ -23,4 +23,4 @@ python3 lrx_analyze.py
 - In `./mix/config.txt`
 - Set `ENABLE_THEMIS` to true, test our solution
 - Set `ENABLE_THEMIS` to false, and set `CC_MODE` to 1, test origin DCQCN solution
-- Set `ENABLE_THEMIS` to false, and set `CC_MODE` to 3, test origin DCQCN solution
+- Set `ENABLE_THEMIS` to false, and set `CC_MODE` to 3, test origin HPCC solution
