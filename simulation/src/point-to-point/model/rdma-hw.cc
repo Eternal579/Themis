@@ -221,7 +221,6 @@ Ptr<RdmaQueuePair> RdmaHw::GetQp(uint32_t dip, uint16_t sport, uint16_t pg){
 	return NULL;
 }
 
-// 添加队列，并通知网卡开始发送工作
 void RdmaHw::AddQueuePair(uint64_t size, uint16_t pg, Ipv4Address sip, Ipv4Address dip, uint16_t sport, uint16_t dport, uint32_t win, uint64_t baseRtt, Callback<void> notifyAppFinish){
 	// create qp
 	Ptr<RdmaQueuePair> qp = CreateObject<RdmaQueuePair>(pg, sip, dip, sport, dport);
@@ -297,7 +296,7 @@ void RdmaHw::DeleteRxQp(uint32_t dip, uint16_t pg, uint16_t dport){
 	uint64_t key = ((uint64_t)dip << 32) | ((uint64_t)pg << 16) | (uint64_t)dport;
 	m_rxQpMap.erase(key);
 }
-//发送ACK的函数
+
 int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 	uint8_t ecnbits = ch.GetIpv4EcnBits();
 
@@ -316,7 +315,8 @@ int RdmaHw::ReceiveUdp(Ptr<Packet> p, CustomHeader &ch){
 		seqh.SetSport(ch.udp.dport);
 		seqh.SetDport(ch.udp.sport);
 		seqh.SetIntHeader(ch.udp.ih);
-
+		if (ecnbits)
+			seqh.SetCnp();
 		Ptr<Packet> newp = Create<Packet>(std::max(60-14-20-(int)seqh.GetSerializedSize(), 0));
 		newp->AddHeader(seqh);
 
@@ -344,7 +344,7 @@ int RdmaHw::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch){
 	//终端输出CNP
 	uint16_t qIndex = ch.cnp.pg;
 	uint16_t port = ch.cnp.dport;
-
+	//printf("CNP received from %d to %d port %d pg %d\n", ch.sip, ch.dip, port, qIndex);
 	Ptr<RdmaQueuePair> qp = GetQp(ch.sip, port, qIndex);
 	if (qp == NULL){
 		Ipv4Address ipv4_sip = Ipv4Address(ch.sip);

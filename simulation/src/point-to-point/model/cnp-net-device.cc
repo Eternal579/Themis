@@ -412,7 +412,7 @@ int cnt = 0;
 		seqh.SetSport(ch.udp.dport);
 		seqh.SetDport(ch.udp.sport);
 		//std::cout << "CNP sent from " << m_node->GetId() << " to " << ch.sip << " port " << seqh.GetDport() << " pg "<< seqh.GetPG()<< std::endl;
-
+		//Ipv4Address(ch.sip).Print(std::cout);
 		Ptr<Packet> newp = Create<Packet>(std::max(60-14-20-(int)seqh.GetSerializedSize(), 0));
 		newp->AddHeader(seqh);
 		Ipv4Header ipv4h;	// Prepare IPv4 header

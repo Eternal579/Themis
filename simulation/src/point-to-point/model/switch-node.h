@@ -42,6 +42,7 @@ private:
 	void CheckAndSendResume(uint32_t inDev, uint32_t qIndex);
 public:
 	std::map<QbbNetDevice::CnpKey, QbbNetDevice::CNP_Handler> m_cnp_handler;
+	std::map<QbbNetDevice::CnpKey, Time> m_cnp_time;
 	Ptr<SwitchMmu> m_mmu;
 	void CheckAndSendCnp(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p);
 	static TypeId GetTypeId (void);

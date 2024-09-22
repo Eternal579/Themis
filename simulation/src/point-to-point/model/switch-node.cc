@@ -105,7 +105,7 @@ void SwitchNode::CheckAndSendResume(uint32_t inDev, uint32_t qIndex){
 		m_mmu->SetResume(inDev, qIndex);
 	}
 }
-//非常重要的函数！！！important
+
 void SwitchNode::SendToDev(Ptr<Packet>p, CustomHeader &ch){
 	int idx = GetOutDev(p, ch);
 	if (idx >= 0){
@@ -138,6 +138,7 @@ void SwitchNode::SendToDev(Ptr<Packet>p, CustomHeader &ch){
 	}else
 		return; // Drop
 }
+
 uint32_t SwitchNode::EcmpHash(const uint8_t* key, size_t len, uint32_t seed) {
   uint32_t h = seed;
   if (len > 3) {
@@ -194,35 +195,11 @@ bool SwitchNode::SwitchReceiveFromDevice(Ptr<NetDevice> device, Ptr<Packet> pack
 	SendToDev(packet, ch);
 	return true;
 }
-// void SwitchNode::CheckAndSendCnp(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p) {
-// 	FlowIdTag t;
-// 	p->PeekPacketTag(t);
-// 	if (qIndex != 0){
-// 		uint32_t inDev = t.GetFlowId();
-// 		if (m_ecnEnabled){
-// 			bool egressCongested = m_mmu->ShouldSendCN(ifIndex, qIndex);
-// 			if (egressCongested){
-// 				CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
-// 				p->PeekHeader(ch);
-// 				//终端输出流的信息
-// 				std::cout << "ECN sent from " << m_devices[ifIndex]->GetNode()->GetId() << " to " << m_devices[inDev]->GetNode()->GetId() << std::endl;
-// 				if(ch.GetIpv4EcnBits()==0){
-// 					CheckAndSendCnp(ifIndex, qIndex, p);
-// 					Ipv4Header h;
-// 					PppHeader ppp;
-// 					p->RemoveHeader(ppp);
-// 					p->RemoveHeader(h);
-// 					h.SetEcn((Ipv4Header::EcnType)0x03);
-// 					p->AddHeader(h);
-// 					p->AddHeader(ppp);
-// 					Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
-// 					device->SendCnp(p, ch);
-// 				}
-// 			}
-// 		}
-// 	}
-// }
-//设置ECN标记的地方
+
+// Rixin: if it's a External Switch, after get packets with ECN mark, 
+// switches will proactively send CNP to the target sender at intervals of 10us, 
+// similar to the Nofitifcation Point on the receiver of DCQCN.
+int cnp_num=0;
 void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Packet> p){
 	FlowIdTag t;
 	p->PeekPacketTag(t);
@@ -232,34 +209,73 @@ void SwitchNode::SwitchNotifyDequeue(uint32_t ifIndex, uint32_t qIndex, Ptr<Pack
 		m_mmu->RemoveFromEgressAdmission(ifIndex, qIndex, p->GetSize());
 		m_bytes[inDev][ifIndex][qIndex] -= p->GetSize();
 		if (m_ecnEnabled){
+			CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
+			p->PeekHeader(ch);
 			bool egressCongested = m_mmu->ShouldSendCN(ifIndex, qIndex);
+			// Rixin: direct feedback generator, it's an old version of Themis
+			// if (egressCongested){
+			// 	//终端输出流的信息
+			// 	//printf("1.1\n");
+			// 	if(ch.GetIpv4EcnBits()==0){
+			// 		Ipv4Header h;
+			// 		PppHeader ppp;
+			// 		p->RemoveHeader(ppp);
+			// 		p->RemoveHeader(h);
+			// 		//printf("1.2\n");
+			// 		h.SetEcn((Ipv4Header::EcnType)0x03);
+			// 		p->AddHeader(h);
+			// 		p->AddHeader(ppp);
+			// 		//printf("1.3\n");
+			// 		Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
+			// 		device->SendCnp(p, ch);
+			// 		cnp_num++;
+			// 		printf("cnp_num: %d\n", cnp_num);
+			// 		//输出交换机编号
+			// 		//std::cout << "SwitchNode ID: " << m_id << std::endl;
+			// 		//printf("1.4\n");
+			// 	}
+			// }
 			if (egressCongested){
-				CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
-				p->PeekHeader(ch);
-				//终端输出流的信息
-				//printf("1.1\n");
-				if(ch.GetIpv4EcnBits()==0){
 					Ipv4Header h;
 					PppHeader ppp;
 					p->RemoveHeader(ppp);
 					p->RemoveHeader(h);
-					//printf("1.2\n");
 					h.SetEcn((Ipv4Header::EcnType)0x03);
 					p->AddHeader(h);
 					p->AddHeader(ppp);
-					//printf("1.3\n");
-					Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
-					device->SendCnp(p, ch);
-					//输出交换机编号
-					//std::cout << "SwitchNode ID: " << m_id << std::endl;
-					//printf("1.4\n");
-				}
 			}
-			
-				// CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
-				// p->PeekHeader(ch);
-				// std::cout << " dport " << ch.cnp.dport<<std::endl;
-			
+			// Rixin: new version, only External Switch will send CNP
+			if(ch.GetIpv4EcnBits()){
+				Ptr<QbbNetDevice> device = DynamicCast<QbbNetDevice>(m_devices[inDev]);
+					if(device->is_externalSW){
+						Ipv4Header h;
+						PppHeader ppp;
+						p->RemoveHeader(ppp);
+						p->RemoveHeader(h);
+						//printf("1.2\n");
+						h.SetEcn((Ipv4Header::EcnType)0x00);
+						p->AddHeader(h);
+						p->AddHeader(ppp);
+						QbbNetDevice::CnpKey key(ch.udp.sport,ch.udp.dport,ch.sip,ch.dip,ch.udp.pg);
+						auto it = m_cnp_time.find(key);
+						// Rixin: decide the CNP interval
+						if(it!=m_cnp_time.end()){
+							if(Simulator::Now()-it->second>MicroSeconds(10)){
+								device->SendCnp(p, ch);
+								cnp_num++;
+								//printf("cnp_num: %d\n", cnp_num);
+								m_cnp_time[key] = Simulator::Now();
+							}
+						}
+						else{
+							device->SendCnp(p, ch);
+							cnp_num++;
+							//printf("cnp_num: %d\n", cnp_num);
+							m_cnp_time[key] = Simulator::Now();
+						}
+						device->SendCnp(p, ch);
+					}
+			}
 		}
 		//CheckAndSendPfc(inDev, qIndex);
 		CheckAndSendResume(inDev, qIndex);

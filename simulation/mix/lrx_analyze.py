@@ -5,13 +5,11 @@ intra_ratio_sum = 0
 intra_flow_cnt = 0
 inter_ratio_sum = 0
 inter_flow_cnt = 0
-ratio_sum = 0
 
 def read_and_classify(file_path):
     global intra_ratio_sum
     global intra_flow_cnt
     global inter_ratio_sum
-    global ratio_sum
     global inter_flow_cnt
     intra_dc_flow = []
     inter_dc_flow = []
@@ -48,9 +46,7 @@ def read_and_classify(file_path):
             # print(src_third_field)
             # print(dst_third_field)
 
-            ratio_sum += ratio
-
-            if (src_third_field < 32 and dst_third_field < 32) or (src_third_field > 31 and dst_third_field > 31):
+            if (src_third_field < 16 and dst_third_field < 16) or (src_third_field > 15 and dst_third_field > 15):
                 intra_ratio_sum += ratio
                 intra_flow_cnt += 1
                 intra_dc_flow.append(line.strip())
@@ -61,7 +57,6 @@ def read_and_classify(file_path):
                 inter_dc_flow.append(line.strip())
     
     if MODE: 
-        print(f"ratio_sum = {ratio_sum / (intra_flow_cnt + inter_flow_cnt)}")
         if intra_flow_cnt > 0: 
             print(f"intra_ratio_sum = {intra_ratio_sum}, intra_flow_cnt = {intra_flow_cnt}, intra_ratio = {intra_ratio_sum / intra_flow_cnt}")
             intra_dc_flow.append(f"Average intra_dc ratio: {intra_ratio_sum / intra_flow_cnt}")
@@ -78,12 +73,12 @@ def write_to_file(data, file_path):
 
 if __name__ == "__main__":
     if MODE:
-        input_file = './Inter-DC/ExprGroup/fct.txt'
+        input_file = './fct.txt'
     else:
-        input_file = f'./Inter-DC/ExprGroup/fct_{prefix}_dc.txt'
-    intra_dc_flow_file = './Inter-DC/ExprGroup/fct_intra_dc.txt'
-    inter_dc_flow_file = './Inter-DC/ExprGroup/fct_inter_dc.txt'
-    ratio_and_flow_size_file = f'./Inter-DC/ExprGroup/{prefix}_ratio_and_flow_size_record.txt'
+        input_file = f'./fct_{prefix}_dc.txt'
+    intra_dc_flow_file = './fct_intra_dc.txt'
+    inter_dc_flow_file = './fct_inter_dc.txt'
+    ratio_and_flow_size_file = f'./{prefix}_ratio_and_flow_size_record.txt'
 
     intra_dc_flow, inter_dc_flow, ratio_and_flow_size_record = read_and_classify(input_file)
 

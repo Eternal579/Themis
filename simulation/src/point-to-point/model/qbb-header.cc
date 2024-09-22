@@ -47,6 +47,9 @@ namespace ns3 {
 	void qbbHeader::SetCnp(){
 		flags |= 1 << FLAG_CNP;
 	}
+	void qbbHeader::RemoveCnp(){
+		flags &= ~(1 << FLAG_CNP);
+	}
 	void qbbHeader::SetIntHeader(const IntHeader &_ih){
 		ih = _ih;
 	}

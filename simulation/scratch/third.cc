@@ -44,6 +44,7 @@ using namespace std;
 NS_LOG_COMPONENT_DEFINE("GENERIC_SIMULATION");
 
 uint32_t cc_mode = 1;
+bool enable_themis = true;
 bool enable_qcn = true, use_dynamic_pfc_threshold = true;
 uint32_t packet_payload_size = 1000, l2_chunk_size = 0, l2_ack_interval = 0;
 double pause_time = 5, simulator_stop_time = 3.01;
@@ -379,6 +380,14 @@ int main(int argc, char *argv[])
 					std::cout << "ENABLE_QCN\t\t\t" << "Yes" << "\n";
 				else
 					std::cout << "ENABLE_QCN\t\t\t" << "No" << "\n";
+			}else if (key.compare("ENABLE_THEMIS") == 0){
+				uint32_t v;
+				conf >> v;
+				enable_themis = v;
+				if (enable_themis)
+					std::cout << "ENABLE_THEMIS\t\t\t" << "Yes" << "\n";
+				else
+					std::cout << "ENABLE_THEMIS\t\t\t" << "No" << "\n";
 			}
 			else if (key.compare("USE_DYNAMIC_PFC_THRESHOLD") == 0)
 			{
@@ -843,8 +852,9 @@ int main(int argc, char *argv[])
 			// 对于交换机来说，其上的设备数为其连接的服务器有多少个
 			for (uint32_t j = 1; j < sw->GetNDevices(); j++){
 				Ptr<QbbNetDevice> dev = DynamicCast<QbbNetDevice>(sw->GetDevice(j));
-				if (i == 80 || i == 81) {
-					dev->enable_themis = true;
+				// std::cout << "enable_themis = " << enable_themis << "\n";
+				if (enable_themis && (i == 48 || i == 49)) {
+					dev->is_externalSW = true;
 					dev->m_cnp_handler = &sw->m_cnp_handler;
 					if(dev->m_cnp_handler == NULL)
 						std::cout << "m_cnp_handler is NULL\n";
@@ -872,6 +882,8 @@ int main(int argc, char *argv[])
 			// switch buffer大小单位为MB
 			sw->m_mmu->ConfigBufferSize(buffer_size* 1024 * 1024);
 			sw->m_mmu->node_id = sw->GetId();
+			if(sw->GetId() == 48 || sw->GetId() == 49)
+				sw->m_mmu->ConfigBufferSize(200 * 1024 * 1024);
 		}
 	}
 	#if ENABLE_QP

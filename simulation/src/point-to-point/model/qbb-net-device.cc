@@ -255,18 +255,9 @@ namespace ns3 {
 		DequeueAndTransmit();
 	}
 
-	/**
- * @brief 从队列中取出并发送数据包
- *
- * 如果链路未连接，则返回。如果发送通道忙，则返回。
- * 根据节点类型，从队列中取出数据包并发送。
- * 如果节点类型为0，则从RDMA事件队列中获取数据包并发送；
- * 如果节点类型为交换机，则从普通队列中取出数据包并发送。
- *
- * @return 无返回值
- */
 int first_num=0;
 int finish_num=0;
+	// Rixin: External Switch will act as a early Reaction Point, resubmit operated in this function.
 	void
 		QbbNetDevice::DequeueAndTransmit(void)
 	{
@@ -313,7 +304,7 @@ int finish_num=0;
 				CustomHeader ch(CustomHeader::L2_Header | CustomHeader::L3_Header | CustomHeader::L4_Header);
 				//ch.getInt = 1;
 				p->PeekHeader(ch);
-				if(enable_themis&&m_queue->GetLastQueue()!=0){
+				if(is_externalSW&&m_queue->GetLastQueue()!=0&&m_bps==400000000000){
 					//printf("begin resubmit\n");
 					if(ch.udp.pg!=m_queue->GetLastQueue())
 					{
@@ -321,10 +312,7 @@ int finish_num=0;
 						std::cout<<ch.udp.sport<<"  "<<ch.dip<<"  "<<ch.udp.pg<<std::endl;
 					}
 					CnpKey key(ch.udp.dport,ch.udp.sport,ch.dip,ch.sip,ch.udp.pg);
-					// if(m_cnp_handler==NULL)
-					// {
-					// 	std::cout<<"cnp_handler is null"<<std::endl;
-					// }
+					// Rixin: resubmit operated here
 					auto it = m_cnp_handler->find(key);
 					if(it!=m_cnp_handler->end())
 					{
@@ -334,7 +322,8 @@ int finish_num=0;
 							//第一个包第一次
 							if(cnp.first==0)
 							{
-								//printf("1\n");
+								cnp.finish_time=cnp.rec_time;
+								//std::cout<<m_node->GetId()<<std::endl;
 								first_num++;
 								//printf("first_num:%d\n",first_num);
 								cnp.first=ch.udp.seq;
@@ -359,7 +348,6 @@ int finish_num=0;
 									cnp.finished=true;
 									cnp.sended=false;
 									//important
-									cnp.finish_time=Simulator::Now();
 									//printf("into stage 2 %d\n",first_num);
 								}
 							}
@@ -468,12 +456,17 @@ int finish_num=0;
 		return;
 	}
 
+	// Rixin: records info in `m_cnp_hanlder` if it receives a CNP sent from hosts
 	void QbbNetDevice::ReceiveCnp(Ptr<Packet> p, CustomHeader &ch) {
-		uint16_t qIndex = ch.cnp.pg;
-		uint16_t port = ch.cnp.dport;
+		uint8_t c = (ch.ack.flags >> qbbHeader::FLAG_CNP) & 1;
+		if(!c){
+			return;
+		}
+		uint16_t qIndex = ch.ack.pg;
+		uint16_t port = ch.ack.dport;
 		uint32_t sip = ch.sip;
 		//在m_cnp_handler中查
-		CnpKey key(ch.cnp.sport,ch.cnp.dport,ch.sip,ch.dip,ch.cnp.pg);
+		CnpKey key(ch.ack.sport,ch.ack.dport,ch.sip,ch.dip,ch.ack.pg);
 		if (m_cnp_handler == nullptr) {
         	std::cerr << "m_cnp_handler is null" << std::endl;
         	return;
@@ -487,20 +480,8 @@ int finish_num=0;
 		}
 		CNP_Handler cnp;
 		cnp.n = num;
-		//输出cnp.n
-		//std::cout<< cnp.n <<std::endl;
 		cnp.rec_time = Simulator::Now();
-		//如果map内部key数量少于5个，直接插入
-		//std::cout<<"sip= "<<ch.dip<<"dip "<<sip<<" port= "<<port<<" qIndex= "<<qIndex<<std::endl;
 		(*m_cnp_handler)[key] = cnp;
-		//std::cout<<" finish "<<std::endl;
-		//(*m_cnp_handler)[key] = cnp;
-		//m_cnp_handler->insert(std::pair<CnpKey, CNP_Handler>(key, cnp));
-		//输出cnp_handler中的所有key
-		//  if(m_node->GetId()==80){
-		// 	std::cout<<"nd2 "<<m_node->GetId()<<" cnp received sip= "<<sip<<" port= "<<port<<" qIndex= "<<qIndex<<std::endl;
-		// 	std::cout << "m_cnp_handler size: " << m_cnp_handler->size() << std::endl;
-		//  }
 		return;
 	}
 
@@ -552,13 +533,13 @@ int finish_num=0;
 		}
 		else { // non-PFC packets (data, ACK, NACK, CNP...)
 			if (m_node->GetNodeType() > 0){ // switch
-			if (ch.l3Prot == 0xFF && enable_themis&&m_bps.GetBitRate()==100000000000) {
-				//std::cout<<m_bps.GetBitRate()<<std::endl;
-				ReceiveCnp(packet, ch);
-				//printf("finish receive cnp\n");
-			}
-				packet->AddPacketTag(FlowIdTag(m_ifIndex));
-				m_node->SwitchReceiveFromDevice(this, packet, ch);
+				if ((ch.l3Prot == 0xFC||ch.l3Prot==0xFD) && is_externalSW) {
+					//std::cout<<m_bps.GetBitRate()<<std::endl;
+					ReceiveCnp(packet, ch);
+					//printf("finish receive cnp\n");
+				}
+					packet->AddPacketTag(FlowIdTag(m_ifIndex));
+					m_node->SwitchReceiveFromDevice(this, packet, ch);
 			}else { // NIC
 				// send to RdmaHw
 				int ret = m_rdmaReceiveCb(packet, ch);
@@ -611,7 +592,7 @@ int finish_num=0;
 		seqh.SetSport(ch.udp.dport);
 		seqh.SetDport(ch.udp.sport);
 		//std::cout << "CNP sent from " << m_node->GetId() << " to " << ch.sip << " port " << seqh.GetDport() << " pg "<< seqh.GetPG()<< std::endl;
-
+		//Ipv4Address(ch.sip).Print(std::cout);
 		Ptr<Packet> newp = Create<Packet>(std::max(60-14-20-(int)seqh.GetSerializedSize(), 0));
 		newp->AddHeader(seqh);
 		Ipv4Header ipv4h;	// Prepare IPv4 header

@@ -40,6 +40,7 @@ public:
   void SetDport(uint32_t _dport);
   void SetTs(uint64_t ts);
   void SetCnp();
+  void RemoveCnp();
   void SetIntHeader(const IntHeader &_ih);
 
 //Getters

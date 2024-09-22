@@ -189,7 +189,7 @@ class CNP_Handler{
 	TracedCallback<uint32_t> m_tracePfc; // 0: resume, 1: pause
 
   std::map<CnpKey, CNP_Handler> *m_cnp_handler;
-  bool enable_themis;
+  bool is_externalSW;
 protected:
 
 	//Ptr<Node> m_node;
