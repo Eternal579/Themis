@@ -1,5 +1,5 @@
 # Themis
-This repository contains the source codes of the prototype for our submission to SOSP'24 poster: `Themis: Efficiently Mitigating Congestion-Induced Fairness Disparities in Long-Haul RDMA Networks`.
+This repository contains the source codes of the prototype for our SOSP'24 poster: `Themis: Efficiently Mitigating Congestion-Induced Fairness Disparities in Long-Haul RDMA Networks`.
 Here are edited files:
 - `SwitchNode::SwitchNotifyDequeue`: if it's a External Switch, after get packets with ECN mark, switches will proactively send CNP to the target sender at intervals of 10us, similar to the Nofitifcation Point on the receiver of DCQCN.
 - `QbbNetDevice::ReceiveCnp`: records info in `m_cnp_hanlder` if it receives a CNP from hosts.
